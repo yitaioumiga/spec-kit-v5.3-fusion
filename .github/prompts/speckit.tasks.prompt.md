@@ -1,128 +1,130 @@
----
-description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts.
----
+# command: /speckit.tasks
+# short: Generate Autonomous Work Packages (AWP) from plan.md
+# description: >
+# [V5.1 spec-md 劫持：AWP 生成]
+# This command hijacks the default 'tasks' behavior.
+# It reads 'plan.md' and uses our custom 'AWP-template.md' to generate a single, comprehensive 'tasks.md' file formatted as a series of AWPs.
+# @raycast.schemaVersion 1
+# @raycast.title speckit.tasks
+# @raycast.mode fullOutput
+# @raycast.icon 🎯
+# @raycast.packageName spec-kit
+# @raycast.author Den Delimarsky
+# @raycast.authorURL https://github.com/localden
+# @raycast.author John Lam
+# @raycast.authorURL https://github.com/jflam
 
-## User Input
+#Phase 1: 🧠 AI Task (Generating AWPs from plan.md)
+# (V5.1 备注：tasks 命令不涉及 Shell 脚本，它是一个纯 AI 任务)
 
-```text
-$ARGUMENTS
+**致 AI 助手 (Copilot/Trae)：**
+
+你的任务是执行一次"**工作包分解 (Work Package Breakdown)**"。你将扮演"首席规划师"的角色，将高层级的技术方案（`plan.md`）分解为一系列详细的、可执行的、遵循我们 `spec-md` 体系的**自主工作包 (AWPs)**。
+
+## 0. Dry-Run Mode Detection (--dry-run 标志检测)
+
+**如果** 用户输入包含 `--dry-run` 标志, **那么**:
+
+1. **跳过** 所有文件写入操作 (不要创建或修改 `tasks.md`)
+2. **内部执行** AWP 生成逻辑 (分析 plan.md, 设计 AWPs, 按照 AWP-template.md 格式)
+3. **输出** DryRunReport 到控制台 (见下方格式)
+4. **退出** (报告生成后不再执行后续步骤)
+
+**否则** (正常模式):
+- 按常规流程继续, 执行下方的 "1. 审查" 和 "2. AWP 生成" 步骤
+
+### DryRunReport 格式
+
+```markdown
+# Dry Run Report: /speckit.tasks
+
+**Command**: `/speckit.tasks --dry-run`  
+**Timestamp**: [当前 ISO 8601 时间]  
+**Source**: `specs/$FEATURE_DIR/plan.md`  
+**Target File**: `specs/$FEATURE_DIR/tasks.md` (NOT created in dry-run mode)
+
+## Planned AWP Structure
+
+### AWP-[PREFIX]-001: [AWP Title from plan.md]
+- **Type**: [组件搭建类 | 测试与修复类 | 调查分析类 | 记忆沉淀类]
+- **Priority**: [🔴 P1 | 🟡 P2 | 🟢 P3]
+- **Description**: [Brief 1-2 sentence summary]
+- **Dependencies**: [List prerequisites, or "None"]
+- **Estimated Effort**: [e.g., "2-4 hours"]
+
+[重复此结构for每个计划的AWP...]
+
+## Summary
+- **Total AWPs planned**: X
+- **Breakdown by type**: Y 组件搭建, Z 测试修复, ...
+- **Critical path**: AWP-XXX-001 → AWP-XXX-002 → ...
+- **Estimated total effort**: [e.g., "1-2 days"]
+
+## Warnings
+[Optional] 任何检测到的问题, 例如:
+- "Missing plan.md section: API Contracts"
+- "AWP dependencies unclear"
+
+## Next Steps
+If this preview looks correct, run `/speckit.tasks` (without --dry-run) to create tasks.md.
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+---
 
-## Outline
+## 1. 审查 (Review)
 
-1. **Setup**: Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+你**必须**首先确认以下文件**已被成功创建**：
 
-2. **Load design documents**: Read from FEATURE_DIR:
-   - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
-   - **Optional**: data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
-   - Note: Not all projects have all documents. Generate tasks based on what's available.
+* `specs/$FEATURE_DIR/plan.md` (你的**主要输入源**)
+* `specs/$FEATURE_DIR/tasks.md` (此文件**不应存在**，你将要创建它)
+* **(关键) `.specify/templates/AWP-template.md` (你的**唯一格式指南**)**
+* **(忽略) `.specify/templates/tasks-template.md` (你**必须忽略**此文件)**
 
-3. **Execute task generation workflow**:
-   - Load plan.md and extract tech stack, libraries, project structure
-   - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
-   - If data-model.md exists: Extract entities and map to user stories
-   - If contracts/ exists: Map endpoints to user stories
-   - If research.md exists: Extract decisions for setup tasks
-   - Generate tasks organized by user story (see Task Generation Rules below)
-   - Generate dependency graph showing user story completion order
-   - Create parallel execution examples per user story
-   - Validate task completeness (each user story has all needed tasks, independently testable)
+## 2. AWP 生成 (AWP Generation)
 
-4. **Generate tasks.md**: Use `.specify.specify/templates/tasks-template.md` as structure, fill with:
-   - Correct feature name from plan.md
-   - Phase 1: Setup tasks (project initialization)
-   - Phase 2: Foundational tasks (blocking prerequisites for all user stories)
-   - Phase 3+: One phase per user story (in priority order from spec.md)
-   - Each phase includes: story goal, independent test criteria, tests (if requested), implementation tasks
-   - Final Phase: Polish & cross-cutting concerns
-   - All tasks must follow the strict checklist format (see Task Generation Rules below)
-   - Clear file paths for each task
-   - Dependencies section showing story completion order
-   - Parallel execution examples per story
-   - Implementation strategy section (MVP first, incremental delivery)
+**[V5.1 spec-md 融合指令]**
+这是我们 V5.1 计划的核心生成步骤。你必须严格遵循以下指令：
 
-5. **Report**: Output path to generated tasks.md and summary:
-   - Total task count
-   - Task count per user story
-   - Parallel opportunities identified
-   - Independent test criteria for each story
-   - Suggested MVP scope (typically just User Story 1)
-   - Format validation: Confirm ALL tasks follow the checklist format (checkbox, ID, labels, file paths)
+1.  **读取技术蓝图 (plan.md):**
+    * **路径:** `specs/$FEATURE_DIR/plan.md`
+    * **操作:** 完整读取此文件，理解所有的技术栈、数据模型、API 合约和文件结构。
 
-Context for task generation: $ARGUMENTS
+2.  **(核心) 加载"黄金模板" (AWP-template.md):**
+    * **路径:** `.specify/templates/AWP-template.md`
+    * **操作:** 完整读取此"黄金模板"，**深刻理解**其复杂的结构，包括：
+        * AWP 元数据 (ID, 类型, 模板版本)
+        * 1. 战略意图与最高指示 (角色, 使命, 约束)
+        * 2. RESEARCH 阶段 (分层记忆查阅, 调查任务)
+        * 3. PLAN 阶段 (实施清单, 风险评估)
+        * 4. EXECUTE 阶段 (日志配置, 自愈循环, 分类指南)
+        * 5. REVIEW 阶段 (最高审查协议, 证据驱动)
+    * **禁止：** **严禁**读取或参考 `.specify/templates/tasks-template.md`。它已**被废弃**。
 
-The tasks.md should be immediately executable - each task must be specific enough that an LLM can complete it without additional context.
+3.  **分析并分解 (AWP 生成核心):**
+    * 你的**唯一任务**，是将 `plan.md` 中的高层级任务（例如"实现登录 API"，"创建用户数据模型"），**分解**为一系列符合 `AWP-template.md` 格式的、**完整的**自主工作包。
+    * **例如：** `plan.md` 里的"实现登录 API" -> 应该被扩展成一个**完整**的 AWP（包含 R-P-E-R 四个阶段、审查协议、日志记录要求等）。
+    * 你需要为每个 AWP 分配一个唯一的 ID（例如 `AWP-DEV-01`, `AWP-DEV-02`...）。
 
-## Task Generation Rules
+4.  **(关键) 遵守 V4 源码约束 (单文件输出):**
+    * **约束：** `spec-kit` 的下游命令 (`/implement`) 期望只读取**一个** `tasks.md` 文件。
+    * **执行：** 你**必须**将你生成的所有 AWP（例如 `AWP-DEV-01`, `AWP-DEV-02`...）**全部串联起来，写入并创建到单个** `specs/$FEATURE_DIR/tasks.md` 文件中。
+    * **格式：** 使用 Markdown 的 `---` 分隔符来区分文件中的每一个 AWP。
 
-**CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
+    *(tasks.md 文件内容示例)*
+    ```markdown
+    <!--
+    AWP ID: AWP-DEV-01
+    ... (AWP-01 的完整 R-P-E-R 内容) ...
+    -->
 
-**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
+    ---
 
-### Checklist Format (REQUIRED)
+    <!--
+    AWP ID: AWP-DEV-02
+    ... (AWP-02 的完整 R-P-E-R 内容) ...
+    -->
+    ```
 
-Every task MUST strictly follow this format:
-
-```text
-- [ ] [TaskID] [P?] [Story?] Description with file path
-```
-
-**Format Components**:
-
-1. **Checkbox**: ALWAYS start with `- [ ]` (markdown checkbox)
-2. **Task ID**: Sequential number (T001, T002, T003...) in execution order
-3. **[P] marker**: Include ONLY if task is parallelizable (different files, no dependencies on incomplete tasks)
-4. **[Story] label**: REQUIRED for user story phase tasks only
-   - Format: [US1], [US2], [US3], etc. (maps to user stories from spec.md)
-   - Setup phase: NO story label
-   - Foundational phase: NO story label  
-   - User Story phases: MUST have story label
-   - Polish phase: NO story label
-5. **Description**: Clear action with exact file path
-
-**Examples**:
-
-- ✅ CORRECT: `- [ ] T001 Create project structure per implementation plan`
-- ✅ CORRECT: `- [ ] T005 [P] Implement authentication middleware in src/middleware/auth.py`
-- ✅ CORRECT: `- [ ] T012 [P] [US1] Create User model in src/models/user.py`
-- ✅ CORRECT: `- [ ] T014 [US1] Implement UserService in src/services/user_service.py`
-- ❌ WRONG: `- [ ] Create User model` (missing ID and Story label)
-- ❌ WRONG: `T001 [US1] Create model` (missing checkbox)
-- ❌ WRONG: `- [ ] [US1] Create User model` (missing Task ID)
-- ❌ WRONG: `- [ ] T001 [US1] Create model` (missing file path)
-
-### Task Organization
-
-1. **From User Stories (spec.md)** - PRIMARY ORGANIZATION:
-   - Each user story (P1, P2, P3...) gets its own phase
-   - Map all related components to their story:
-     - Models needed for that story
-     - Services needed for that story
-     - Endpoints/UI needed for that story
-     - If tests requested: Tests specific to that story
-   - Mark story dependencies (most stories should be independent)
-
-2. **From Contracts**:
-   - Map each contract/endpoint → to the user story it serves
-   - If tests requested: Each contract → contract test task [P] before implementation in that story's phase
-
-3. **From Data Model**:
-   - Map each entity to the user story(ies) that need it
-   - If entity serves multiple stories: Put in earliest story or Setup phase
-   - Relationships → service layer tasks in appropriate story phase
-
-4. **From Setup/Infrastructure**:
-   - Shared infrastructure → Setup phase (Phase 1)
-   - Foundational/blocking tasks → Foundational phase (Phase 2)
-   - Story-specific setup → within that story's phase
-
-### Phase Structure
-
-- **Phase 1**: Setup (project initialization)
-- **Phase 2**: Foundational (blocking prerequisites - MUST complete before user stories)
-- **Phase 3+**: User Stories in priority order (P1, P2, P3...)
-  - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration
-  - Each phase should be a complete, independently testable increment
-- **Final Phase**: Polish & Cross-Cutting Concerns
+5.  **最终确认：**
+    * 报告 `tasks.md` 创建完成。
+    * 声明："我已成功将 `plan.md` 分解，并**唯一使用** `AWP-template.md` 格式，生成了包含 [N] 个 AWP 的**单个** `tasks.md` 文件。"

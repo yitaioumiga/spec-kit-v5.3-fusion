@@ -1,11 +1,83 @@
----
-description: Create or update the project constitution AND initialize V5.3 Memory System
-# [V5.3 (v1.1) 注入]: 通过 frontmatter 调用我们新创建的、合并了功能的外部脚本
-scripts:
-  sh: .specify/scripts/bash/setup-v5.3-constitution.sh
-  # (如果需要，还应创建 PowerShell 版本的脚本)
-  # ps: .specify/scripts/powershell/setup-v5.3-constitution.ps1
----
+# command: /speckit.constitution
+# short: Create or update project principles and memory system
+# description: >
+#   This command performs two critical actions:
+#   1. Generates the `constitution.md` file based on your spec-md "Project Rules".
+#   2. Initializes the complete "Four-in-One" AI Assistant Memory system structure (`ai_assistant_memory`).
+#   [V5.1-Merged spec-md 融合版 + 一致性传播机制]
+# @raycast.schemaVersion 1
+# @raycast.title speckit.constitution
+# @raycast.mode fullOutput
+# @raycast.argument1 { "type": "text", "placeholder": "Describe your project principles (基于 spec-md 项目规则)..." }
+# @raycast.icon 📜
+# @raycast.packageName spec-kit
+# @raycast.author Den Delimarsky
+# @raycast.authorURL https://github.com/localden
+# @raycast.author John Lam
+# @raycast.authorURL https://github.com/jflam
+
+# Phase 1: 📜 Shell Script Execution (Initializing Constitution & Memory System)
+# This script will:
+# 1. Run the standard spec-kit script to create the feature branch and `constitution.md`.
+# 2. [V5 注入] Create the "Four-in-One" AI memory directory structure.
+# 3. [V5 注入] Copy the master `memory-system-readme.md` template into the new memory system.
+
+#!/bin/bash
+set -e
+
+# Load common functions and variables
+# IMPORTANT: Adjust this path if your script is in a different location relative to common.sh
+source "$(dirname "$0")/../../.specify/scripts/common.sh"
+
+# 1. --- [原始逻辑保留] Standard spec-kit script ---
+# This script creates the feature branch, sets up $FEATURE_DIR,
+# and creates the initial specs/$FEATURE_DIR/constitution.md file.
+bash "$(dirname "$0")/../../.specify/scripts/create-new-feature.sh" \
+  --feature-name "constitution" \
+  --summary "Establish project constitution and memory system" \
+  --skip-pr \
+  --auto-checkout \
+  --allow-empty-description \
+  --description "$1"
+
+# --- [V5 spec-md 融合注入] 开始 ---
+
+# 2. --- Initialize "Four-in-One" AI Assistant Memory Structure ---
+echo "Initializing 'Four-in-One' AI Assistant Memory structure..."
+
+# Define memory system path
+# 我们将记忆库放在项目根目录，而不是 specs/ 目录中，以便于访问
+MEMORY_ROOT="ai_assistant_memory"
+MEMORY_ROOT_README="$MEMORY_ROOT/README.md"
+
+# 路径修正：模板位于 .specify/templates/
+MEMORY_TEMPLATE_PATH=".specify/templates/memory-system-readme.md"
+
+# Create root folder
+mkdir -p "$MEMORY_ROOT"
+
+# Create the Four Tiers
+mkdir -p "$MEMORY_ROOT/docs/global"
+mkdir -p "$MEMORY_ROOT/docs/components"
+mkdir -p "$MEMORY_ROOT/.context"
+mkdir -p "$MEMORY_ROOT/logs"
+mkdir -p "$MEMORY_ROOT/work_package_archives"
+
+echo "Memory system directory structure created at '$MEMORY_ROOT'."
+
+# 3. --- Deploy Memory System Blueprint (README) ---
+# 将我们蒸馏好的通用模板复制到记忆库根目录，作为"活索引"
+if [ -f "$MEMORY_TEMPLATE_PATH" ]; then
+  cp "$MEMORY_TEMPLATE_PATH" "$MEMORY_ROOT_README"
+  echo "Deployed 'memory-system-readme.md' to '$MEMORY_ROOT_README'."
+else
+  echo "WARNING: Master memory template not found at '$MEMORY_TEMPLATE_PATH'. Skipping deployment."
+fi
+
+# --- [V5 spec-md 融合注入] 结束 ---
+
+echo "Constitution and AI Memory System initialization complete."
+echo "FEATURE_DIR=$FEATURE_DIR"
 
 # Phase 2: 🧠 AI Task (Populating the Constitution & Ensuring Consistency)
 
