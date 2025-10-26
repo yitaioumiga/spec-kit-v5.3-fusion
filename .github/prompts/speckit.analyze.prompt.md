@@ -33,6 +33,115 @@ Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -In
 Abort with an error message if any required file is missing (instruct the user to run missing prerequisite command).
 For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
+### 1.5. AWP Format Adapter (Spec-Kit V5.3 Compatibility Layer)
+
+**【新增步骤 - 修复 Conflict #1 from AUDIT_REPORT.md】**
+
+**Purpose**: Enable `/speckit.analyze` to work with V5.3's AWP (Autonomous Work Package) format by transcribing AWP structure into a temporary in-memory checklist before applying original consistency checks.
+
+**Execution Logic**:
+
+**Step A: Detect File Format**
+
+After loading TASKS file path, perform format detection:
+
+1. **Read first 50 lines** of TASKS file
+2. **Check for AWP markers**:
+   - Presence of `## 元数据 (Metadata)` section
+   - Presence of `## 战略意图 (Strategic Intent)` section  
+   - Presence of `## PHASE 1: RESEARCH` or similar phase headers
+   - Presence of `### Task X.Y:` pattern (e.g., `### Task 1.1:`, `### Task 2.3:`)
+
+**If AWP markers detected** (>=3 markers present):
+- Set `FORMAT = "AWP"`
+- Proceed to **Step B: AWP-to-Checklist Transcription**
+
+**If AWP markers NOT detected**:
+- Set `FORMAT = "CHECKLIST"`  
+- Skip to original **Section 2: Load Artifacts** (no adaptation needed)
+
+**Step B: AWP-to-Checklist Transcription (Only if FORMAT = "AWP")**
+
+**Goal**: Extract task information from AWP's multi-phase structure and convert to flat checklist format for compatibility with original analysis logic.
+
+**Transcription Rules**:
+
+1. **Ignore metadata sections**: Skip `元数据`, `战略意图`, etc. (not task content)
+
+2. **Extract tasks from PHASE sections**:
+   - Search for `## PHASE N:` headers (where N = 1, 2, 3, 4)
+   - Under each PHASE, find `### Task X.Y:` subsections
+   - Example AWP task:
+     ```markdown
+     ### Task 2.1: 设计数据库 schema
+     - 设计 users 表结构
+     - 定义密码哈希策略
+     - 产出物: `.context/db-schema.md`
+     ```
+
+3. **Convert to checklist format**:
+   - Transform `### Task X.Y: [Description]` → `- [ ] TX.Y: [Description]`
+   - Preserve task description verbatim
+   - Extract deliverables from `产出物:` or similar patterns
+   - Example transcription:
+     ```markdown
+     - [ ] T2.1: 设计数据库 schema (Deliverable: .context/db-schema.md)
+     ```
+
+4. **Preserve phase grouping** (optional for phase-level analysis):
+   - Add phase comments to transcribed checklist:
+     ```markdown
+     # Phase 1: RESEARCH
+     - [ ] T1.1: 技术调研 (Deliverable: logs/auth-research.md)
+     - [ ] T1.2: 分析现有代码 (Deliverable: logs/code-analysis.md)
+     
+     # Phase 2: PLAN
+     - [ ] T2.1: 设计数据库 schema (Deliverable: .context/db-schema.md)
+     ```
+
+5. **Handle parallel markers**:
+   - If AWP task description contains keywords like "可并行" or "parallel", add `[P]` marker
+   - Example: `- [ ] T3.1: 创建 User 模型 [P]`
+
+**Step C: Store Transcribed Checklist in Memory**
+
+- Store transcribed checklist as `TASKS_TRANSCRIBED` (in-memory variable)
+- Use `TASKS_TRANSCRIBED` instead of raw TASKS file for all subsequent analysis steps
+- **DO NOT write transcribed checklist to disk** (this is a read-only analysis)
+
+**Step D: Log Adapter Activation**
+
+Include in analysis report:
+```markdown
+## AWP Format Adapter
+
+**Detected Format**: AWP (Autonomous Work Package)  
+**Transcription Status**: ✅ SUCCESS  
+**Transcribed Tasks**: N tasks across M phases  
+**Note**: Analysis performed on transcribed checklist; original AWP structure preserved on disk.
+```
+
+**Error Handling**:
+
+If AWP format detected but transcription fails:
+- Log error in report: `⚠️ AWP transcription failed: [reason]`
+- Fallback: Attempt analysis on raw AWP content (expect degraded accuracy)
+- Recommendation: Suggest manual checklist generation or AWP format correction
+
+**Preservation of Original Logic**:
+
+After transcription (or if CHECKLIST format detected):
+- Continue to **Section 2: Load Artifacts** using `TASKS_TRANSCRIBED` (or original TASKS if no adaptation needed)
+- All downstream analysis (duplication, ambiguity, coverage, etc.) operates on transcribed format
+- Original AWP file remains unmodified
+
+**Expected Outcomes**:
+
+1. ✅ `/speckit.analyze` can now process V5.3 AWP-formatted tasks
+2. ✅ Consistency checks (spec ↔ tasks mapping) work correctly  
+3. ✅ No breaking changes to original checklist format support
+4. ✅ Clear reporting of adapter activation in analysis output
+
 ### 2. Load Artifacts (Progressive Disclosure)
 
 Load only the minimal necessary context from each artifact:
